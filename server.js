@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(cors());
@@ -28,14 +27,14 @@ REGLAS OBLIGATORIAS:
 2. Si la fotografía está desenfocada, lejos, o no muestra partes clave (pie, láminas o poros, base), pon isClearImage en false y detalla qué falta en missingFeatures.
 3. Responde ÚNICAMENTE un objeto JSON válido con esta estructura:
 {
-  "isClearImage": true o false,
-  "confidenceScore": número entre 0 y 1,
-  "missingFeatures": ["elementos ausentes, ej: base del pie, corte interior"],
+  "isClearImage": true,
+  "confidenceScore": 0.85,
+  "missingFeatures": ["elementos ausentes si los hay"],
   "candidates": [
     {
       "scientificName": "Género especie",
       "commonName": "Nombre común en español",
-      "probability": número entre 0 y 1,
+      "probability": 0.85,
       "visualEvidences": "Rasgos visuales que apoyan la coincidencia",
       "dangerousLookalikes": "Especies tóxicas o mortales con las que se suele confundir",
       "habitat": "Hábitat habitual"
@@ -60,38 +59,47 @@ app.post('/api/identify', async (req, res) => {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Extraer formato y datos limpios del base64
     const matches = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
     const mimeType = matches ? matches[1] : 'image/jpeg';
     const base64Data = matches ? matches[2] : imageBase64;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const geminiPayload = {
       contents: [
         {
-          role: 'user',
+          role: "user",
           parts: [
             { text: SYSTEM_INSTRUCTIONS },
             {
-              inlineData: {
-                mimeType: mimeType,
+              inline_data: {
+                mime_type: mimeType,
                 data: base64Data
               }
             }
           ]
         }
       ],
-      config: {
-        responseMimeType: 'application/json'
+      generationConfig: {
+        responseMimeType: "application/json"
       }
+    };
+
+    const aiResponse = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiPayload)
     });
 
-    const resultText = response.text();
-    const parsed = JSON.parse(resultText);
+    if (!aiResponse.ok) {
+      const errDetail = await aiResponse.text();
+      return res.status(aiResponse.status).json({ error: 'Error del servicio Gemini', details: errDetail });
+    }
 
-    // Cruzar con base de datos toxicológica
+    const aiJson = await aiResponse.json();
+    const rawText = aiJson.candidates[0].content.parts[0].text;
+    const parsed = JSON.parse(rawText);
+
     if (parsed.candidates && Array.isArray(parsed.candidates)) {
       parsed.candidates = parsed.candidates.map(c => {
         const key = (c.scientificName || '').toLowerCase().trim();
