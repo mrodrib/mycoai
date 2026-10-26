@@ -131,3 +131,6 @@ app.post('/api/identify', async (req, res) => {
     res.status(500).json({ error: 'Error procesando la imagen', details: err.message });
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`MycoAI escuchando en puerto ${PORT}`));
