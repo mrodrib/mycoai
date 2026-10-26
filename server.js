@@ -4,12 +4,10 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '20mb' }));
 
-// Servir la aplicación web estática
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Base toxicológica de seguridad para contrastar y evitar alucinaciones
 const TOXICITY_VERIFICATION = {
   "amanita phalloides": { toxicity: "Mortal", deadly: true, alert: "Amatoxinas mortales. Destrucción hepática fulminante." },
   "amanita verna": { toxicity: "Mortal", deadly: true, alert: "Contiene amatoxinas. Mortal." },
@@ -21,49 +19,76 @@ const TOXICITY_VERIFICATION = {
 };
 
 const SYSTEM_INSTRUCTIONS = `
-Eres un asistente micológico estricto para análisis preliminar.
+Eres un asistente micológico estricto para análisis taxonómico preliminar.
 REGLAS OBLIGATORIAS:
-1. NUNCA afirmes ni sugieras que una seta es comestible o segura para consumir.
-2. Si la fotografía está desenfocada, lejos, o no muestra partes clave (pie, láminas o poros, base), pon isClearImage en false y detalla qué falta en missingFeatures.
+1. NUNCA afirmes que una seta es comestible o segura para consumir basándote en fotos.
+2. Si la fotografía está desenfocada o faltan partes anatómicas clave (pie, láminas o poros), marca isClearImage = false.
 3. Responde ÚNICAMENTE un objeto JSON válido con esta estructura:
 {
   "isClearImage": true,
-  "confidenceScore": 0.85,
-  "missingFeatures": ["elementos ausentes si los hay"],
   "candidates": [
     {
       "scientificName": "Género especie",
       "commonName": "Nombre común en español",
       "probability": 0.85,
-      "visualEvidences": "Rasgos visuales que apoyan la coincidencia",
-      "dangerousLookalikes": "Especies tóxicas o mortales con las que se suele confundir",
+      "visualEvidences": "Rasgos morfológicos observados",
+      "dangerousLookalikes": "Posibles confusiones peligrosas o mortales",
       "habitat": "Hábitat habitual"
     }
   ]
 }
 `;
 
+// Lista de modelos disponibles en orden de prioridad para evitar el error 503 por saturación
+const CANDIDATE_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest'
+];
+
+async function callGeminiWithFallback(apiKey, payload) {
+  let lastError = null;
+
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      const errText = await response.text();
+      lastError = errText;
+      console.warn(`Modelo ${model} no disponible (${response.status}), probando alternativa...`);
+    } catch (e) {
+      lastError = e.message;
+    }
+  }
+
+  throw new Error(lastError || 'Ningún modelo de visión respondió.');
+}
+
 app.post('/api/identify', async (req, res) => {
   const { imageBase64 } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(503).json({
-      error: 'Servicio no configurado',
-      message: 'Falta la clave GEMINI_API_KEY en las variables de entorno del servidor.'
-    });
+    return res.status(503).json({ error: 'Falta configurar GEMINI_API_KEY en Render.' });
   }
 
   if (!imageBase64) {
-    return res.status(400).json({ error: 'No se envió ninguna imagen.' });
+    return res.status(400).json({ error: 'No se envió ninguna fotografía.' });
   }
 
   try {
     const matches = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
     const mimeType = matches ? matches[1] : 'image/jpeg';
     const base64Data = matches ? matches[2] : imageBase64;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
     const geminiPayload = {
       contents: [
@@ -85,18 +110,7 @@ app.post('/api/identify', async (req, res) => {
       }
     };
 
-    const aiResponse = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiPayload)
-    });
-
-    if (!aiResponse.ok) {
-      const errDetail = await aiResponse.text();
-      return res.status(aiResponse.status).json({ error: 'Error del servicio Gemini', details: errDetail });
-    }
-
-    const aiJson = await aiResponse.json();
+    const aiJson = await callGeminiWithFallback(apiKey, geminiPayload);
     const rawText = aiJson.candidates[0].content.parts[0].text;
     const parsed = JSON.parse(rawText);
 
@@ -107,23 +121,23 @@ app.post('/api/identify', async (req, res) => {
         return {
           ...c,
           toxicityVerified: !!verified,
-          toxicityLevel: verified ? verified.toxicity : "No contrastada con certeza",
+          toxicityLevel: verified ? verified.toxicity : "Precaución / No contrastada",
           isDeadly: verified ? verified.deadly : false,
           safetyAlert: verified ? verified.alert : null
         };
       });
     }
 
-    res.json({
-      source: 'REAL_AI_VISION_SERVICE',
-      ...parsed
-    });
+    res.json(parsed);
 
   } catch (err) {
     console.error("Error en inferencia:", err);
-    res.status(500).json({ error: 'Error procesando la imagen', details: err.message });
+    res.status(500).json({ error: 'Error del motor de IA', details: err.message });
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`MycoAI activo en puerto ${PORT}`));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`MycoAI activo en puerto ${PORT}`));
