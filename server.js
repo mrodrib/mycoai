@@ -15,17 +15,33 @@ const TOXICITY_VERIFICATION = {
   "galerina marginata": { toxicity: "Mortal", deadly: true, alert: "Mortal. Síndrome faloidiano." },
   "cortinarius orellanus": { toxicity: "Mortal", deadly: true, alert: "Mortal. Provoca fallo renal irreversible tardío." },
   "chlorophyllum molybdites": { toxicity: "Tóxica Severa", deadly: false, alert: "Gastroenteritis severa aguda." },
-  "omphalotus olearius": { toxicity: "Tóxica", deadly: false, alert: "Tóxica grave. Causa síndrome colinérgico." }
+  "omphalotus olearius": { toxicity: "Tóxica", deadly: false, alert: "Tóxica grave. Causa síndrome colinérgico." },
+  "lactarius deliciosus": { toxicity: "Comestible excelente", deadly: false, alert: "Níscalo / Rovelló. Excelente comestible tras cocinado." }
 };
 
-const SYSTEM_INSTRUCTIONS = "Eres un asistente micologico preliminar. NUNCA digas que una seta es comestible o segura para comer basandote en fotos. Responde SOLO un JSON con esta estructura: {\"isClearImage\": true, \"candidates\": [{\"scientificName\": \"Nombre latino\", \"commonName\": \"Nombre comun\", \"probability\": 0.85, \"visualEvidences\": \"detalles observados\", \"dangerousLookalikes\": \"confusiones peligrosas\", \"habitat\": \"entorno\"}]}";
+const SYSTEM_INSTRUCTIONS = "Eres un asistente micologico preliminar. NUNCA digas que una seta es comestible o segura para comer basandote unicamente en fotos. Responde SOLO un JSON con esta estructura: {\"isClearImage\": true, \"candidates\": [{\"scientificName\": \"Nombre cientifico\", \"commonName\": \"Nombre comun en espanol\", \"probability\": 0.9, \"visualEvidences\": \"detalles visibles observados\", \"dangerousLookalikes\": \"posibles confusiones peligrosas\", \"habitat\": \"habitat probable\"}]}";
 
-// Modelos ordenados por estabilidad según las directivas de Google
-const MODELS_TO_TRY = [
-  'gemini-3.8-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash'
-];
+// Función que consulta a Google qué modelo de visión está ACTIVO para tu clave
+async function getWorkingModelName(apiKey) {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    // Buscar modelos que admitan generateContent y sean de tipo flash o pro
+    const validModels = (data.models || []).filter(m =>
+      m.supportedGenerationMethods &&
+      m.supportedGenerationMethods.includes("generateContent") &&
+      m.name.includes("gemini")
+    );
+
+    // Preferir flash por rapidez y cuota gratuita
+    const preferred = validModels.find(m => m.name.includes("flash")) || validModels[0];
+    return preferred ? preferred.name.replace("models/", "") : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 app.post('/api/identify', async (req, res) => {
   const { imageBase64 } = req.body;
@@ -39,76 +55,76 @@ app.post('/api/identify', async (req, res) => {
     return res.status(400).json({ error: 'No se envió ninguna fotografía.' });
   }
 
-  const matches = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-  const mimeType = matches ? matches[1] : 'image/jpeg';
-  const base64Data = matches ? matches[2] : imageBase64;
+  try {
+    // 1. Detectar modelo disponible en tiempo real
+    const activeModel = await getWorkingModelName(apiKey) || "gemini-1.5-flash";
+    console.log(`Usando modelo detectado: ${activeModel}`);
 
-  const geminiPayload = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: SYSTEM_INSTRUCTIONS },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64Data
+    const matches = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    const mimeType = matches ? matches[1] : 'image/jpeg';
+    const base64Data = matches ? matches[2] : imageBase64;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+
+    const geminiPayload = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: SYSTEM_INSTRUCTIONS },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
             }
-          }
-        ]
-      }
-    ],
-    generationConfig: {
-      responseMimeType: "application/json"
-    }
-  };
-
-  let lastErrorDetail = null;
-
-  // Reintento secuencial si uno está ocupado (503) o no disponible (404)
-  for (const modelName of MODELS_TO_TRY) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiPayload)
-      });
-
-      if (response.ok) {
-        const aiJson = await response.json();
-        const rawText = aiJson.candidates[0].content.parts[0].text;
-        const parsed = JSON.parse(rawText);
-
-        if (parsed.candidates && Array.isArray(parsed.candidates)) {
-          parsed.candidates = parsed.candidates.map(c => {
-            const key = (c.scientificName || '').toLowerCase().trim();
-            const verified = TOXICITY_VERIFICATION[key];
-            return {
-              ...c,
-              toxicityVerified: !!verified,
-              toxicityLevel: verified ? verified.toxicity : "Precaución / No contrastada",
-              isDeadly: verified ? verified.deadly : false,
-              safetyAlert: verified ? verified.alert : null
-            };
-          });
+          ]
         }
-
-        return res.json(parsed);
-      } else {
-        lastErrorDetail = await response.text();
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
       }
-    } catch (err) {
-      lastErrorDetail = err.message;
-    }
-  }
+    };
 
-  // Si ninguno respondió con éxito
-  return res.status(500).json({
-    error: 'El servicio de IA no estuvo disponible momentáneamente.',
-    details: lastErrorDetail
-  });
+    const aiResponse = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiPayload)
+    });
+
+    if (!aiResponse.ok) {
+      const errDetail = await aiResponse.text();
+      return res.status(aiResponse.status).json({
+        error: `Error con el modelo ${activeModel}`,
+        details: errDetail
+      });
+    }
+
+    const aiJson = await aiResponse.json();
+    const rawText = aiJson.candidates[0].content.parts[0].text;
+    const parsed = JSON.parse(rawText);
+
+    if (parsed.candidates && Array.isArray(parsed.candidates)) {
+      parsed.candidates = parsed.candidates.map(c => {
+        const key = (c.scientificName || '').toLowerCase().trim();
+        const verified = TOXICITY_VERIFICATION[key];
+        return {
+          ...c,
+          toxicityVerified: !!verified,
+          toxicityLevel: verified ? verified.toxicity : "Precaución / No contrastada",
+          isDeadly: verified ? verified.deadly : false,
+          safetyAlert: verified ? verified.alert : null
+        };
+      });
+    }
+
+    res.json(parsed);
+
+  } catch (err) {
+    console.error("Error en inferencia:", err);
+    res.status(500).json({ error: 'Error procesando la imagen', details: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`MycoAI escuchando en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`MycoAI activo en puerto ${PORT}`));
