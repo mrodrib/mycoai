@@ -2,186 +2,157 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MycoAI</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <style>
-    :root {
-      --primary: #1C3829;
-      --accent: #C27D38;
-      --bg: #F8F9F6;
-      --surface: #FFFFFF;
-      --border: #E3E8E1;
-      --text: #19221D;
-      --text-muted: #627367;
-      --danger: #B3261E;
-      --danger-bg: #FDF2F2;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --safe-top: env(safe-area-inset-top, 0px);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #EFEFEF; display: flex; justify-content: center; min-height: 100vh; }
-    #app { width: 100%; max-width: 480px; background: var(--surface); min-height: 100vh; display: flex; flex-direction: column; position: relative; }
-    header { padding: calc(var(--safe-top) + 14px) 16px 14px; background: #fff; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-    .brand-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 600; color: var(--primary); }
-    .badge { font-size: 0.7rem; font-weight: 700; background: #E8F2EC; color: var(--primary); padding: 4px 8px; border-radius: 20px; }
-    main { flex: 1; padding: 16px 16px calc(var(--safe-bottom) + 80px); overflow-y: auto; }
-    .screen { display: none; }
-    .screen.active { display: block; }
-    nav { position: fixed; bottom: 0; width: 100%; max-width: 480px; background: #fff; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 4px calc(var(--safe-bottom) + 4px); z-index: 100; }
-    .nav-btn { background: none; border: none; font-size: 0.7rem; font-weight: 600; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; flex: 1; }
-    .nav-btn.active { color: var(--primary); }
-    .nav-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
-    .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 600; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-secondary { background: var(--border); color: var(--text); margin-top: 8px; }
-    .hero-box { background: linear-gradient(145deg, #1C3829, #284F3B); border-radius: 20px; padding: 22px 16px; color: #fff; text-align: center; margin-bottom: 18px; }
-    .hero-box h2 { font-family: 'Playfair Display', serif; margin-bottom: 6px; font-size: 1.4rem; }
-    .hero-box p { font-size: 0.8rem; color: #D1E0D7; margin-bottom: 16px; }
-    .capture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .capture-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-    .danger-box { background: var(--danger-bg); border: 1px solid #F6C6C6; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.8rem; color: #5C1D1A; line-height: 1.4; }
-    .preview-img { width: 100%; height: 230px; object-fit: cover; border-radius: 14px; margin-bottom: 14px; background: #000; }
-    .result-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-    .result-card h3 { font-size: 1.1rem; }
-    .result-card em { font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 8px; }
-    .tag-deadly { display: inline-block; background: #FCE8E6; color: var(--danger); font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; margin-bottom: 8px; }
-    .detail { background: var(--bg); font-size: 0.8rem; padding: 8px 10px; border-radius: 8px; margin-top: 6px; }
-    #map-view { width: 100%; height: 360px; border-radius: 14px; border: 1px solid var(--border); }
-    input[type="file"] { display: none; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; }
+    body { background: #F4F6F3; color: #19221D; display: flex; justify-content: center; min-height: 100vh; }
+    #app { width: 100%; max-width: 480px; background: #fff; min-height: 100vh; padding: 20px 16px; display: flex; flex-direction: column; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 1.4rem; color: #1C3829; }
+    .badge { background: #E8F2EC; color: #1C3829; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+    .alert-danger { background: #FDF2F2; border: 1px solid #F6C6C6; color: #8A1C14; padding: 12px; border-radius: 12px; font-size: 0.82rem; line-height: 1.4; margin-bottom: 16px; }
+    .hero { background: linear-gradient(145deg, #1C3829, #284F3B); color: #fff; padding: 24px 16px; border-radius: 18px; text-align: center; margin-bottom: 20px; }
+    .hero h2 { font-size: 1.3rem; margin-bottom: 6px; }
+    .hero p { font-size: 0.8rem; color: #D1E0D7; margin-bottom: 18px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-action { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 14px 10px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; text-align: center; cursor: pointer; display: block; }
+    .preview-box { width: 100%; height: 250px; background: #000; border-radius: 14px; overflow: hidden; margin-bottom: 16px; display: none; }
+    .preview-box img { width: 100%; height: 100%; object-fit: contain; }
+    .status-box { padding: 16px; border-radius: 12px; text-align: center; font-weight: 600; font-size: 0.9rem; margin-bottom: 16px; display: none; }
+    .status-loading { background: #E8F2EC; color: #1C3829; }
+    .card { border: 1px solid #E3E8E1; border-radius: 14px; padding: 14px; margin-bottom: 12px; background: #fff; }
+    .card h3 { font-size: 1.15rem; color: #1C3829; }
+    .card em { font-size: 0.85rem; color: #627367; display: block; margin-bottom: 8px; }
+    .tag-tox { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
+    .tag-deadly { background: #FCE8E6; color: #B3261E; }
+    .tag-warn { background: #FFF3E0; color: #B56507; }
+    .detail { background: #F8F9F6; font-size: 0.8rem; padding: 8px 10px; border-radius: 8px; margin-top: 6px; line-height: 1.35; }
+    .btn-reset { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #E3E8E1; color: #19221D; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
 
 <div id="app">
   <header>
-    <span class="brand-title">MycoAI</span>
-    <span class="badge" id="source-badge">Conectado a IA</span>
+    <h1>MycoAI</h1>
+    <span class="badge">IA Real v2.0</span>
   </header>
 
-  <main>
-    <!-- INICIO -->
-    <section id="screen-home" class="screen active">
-      <div class="danger-box">
-        <strong>⚠️ AVISO VITAL DE SEGURIDAD:</strong><br>
-        Nunca consumas ninguna seta guiándote por una fotografía. Múltiples especies mortales tienen dobles casi idénticos. Ante una sospecha de intoxicación, acude de inmediato a Urgencias.
+  <div class="alert-danger">
+    <strong>⚠️ BIOSEGURIDAD:</strong> Nunca consumas setas basándote en esta identificación. Muchas especies mortales tienen dobles idénticos.
+  </div>
+
+  <!-- ZONA DE BOTONES PRINCIPALES -->
+  <div id="home-panel">
+    <div class="hero">
+      <h2>Identificador de Setas</h2>
+      <p>Sube o fotografía una muestra micológica</p>
+
+      <div class="btn-row">
+        <!-- Usamos un truco directo de click para que iPhone nunca falle -->
+        <button class="btn-action" onclick="document.getElementById('input-camera').click()">📷 Fotografiar</button>
+        <button class="btn-action" onclick="document.getElementById('input-gallery').click()">🖼️ Galería</button>
       </div>
+    </div>
+  </div>
 
-      <div class="hero-box">
-        <h2>Identificador Micológico</h2>
-        <p>Toma una foto nítida mostrando sombrero, láminas y pie completo.</p>
-        <div class="capture-grid">
-          <label class="capture-btn" for="cam-input">📷 Fotografiar</label>
-          <label class="capture-btn" for="gal-input">🖼️ Galería</label>
-        </div>
-      </div>
+  <!-- PREVISUALIZACIÓN -->
+  <div id="preview-box" class="preview-box">
+    <img id="preview-img" src="" alt="Seta capturada">
+  </div>
 
-      <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase;">Herramientas</h4>
-      <button class="btn btn-secondary" onclick="navigate('catalog')">📖 Ver Catálogo Científico</button>
-      <button class="btn btn-secondary" onclick="navigate('map')">📍 Mapa de Avistamientos</button>
-      <button class="btn btn-secondary" onclick="navigate('history')">🗂️ Mi Historial Guardado</button>
-    </section>
+  <!-- ESTADO DE PROCESAMIENTO -->
+  <div id="status-loading" class="status-box status-loading">
+    ⏳ Analizando morfología con Google Gemini...
+  </div>
 
-    <!-- IDENTIFICACIÓN -->
-    <section id="screen-identify" class="screen">
-      <img id="analyzed-preview" class="preview-img" src="" alt="Seta analizada">
-      <div id="loading-box" style="display:none; text-align: center; padding: 20px;">
-        <p style="font-weight: 700; color: var(--primary);">Consultando IA de visión micológica...</p>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Analizando morfología microscópica y toxicidad...</p>
-      </div>
+  <!-- RESULTADOS -->
+  <div id="results-container"></div>
 
-      <div id="insufficient-alert" class="danger-box" style="display:none; background:#FFF8E6; border-color:#E3C063; color:#7A5500;">
-        <strong>⚠️ Faltan detalles para una identificación segura:</strong>
-        <div id="missing-text" style="margin-top: 4px;"></div>
-      </div>
+  <!-- BOTÓN VOLVER -->
+  <button id="btn-reset" class="btn-reset" onclick="resetApp()">← Fotografiar otra seta</button>
 
-      <div id="results-area"></div>
-      <button class="btn btn-secondary" onclick="navigate('home')">Volver al Inicio</button>
-    </section>
-
-    <!-- CATÁLOGO -->
-    <section id="screen-catalog" class="screen">
-      <h3 style="margin-bottom: 10px;">Especies Documentadas</h3>
-      <div class="result-card">
-        <h3>Oronja verde</h3>
-        <em>Amanita phalloides</em>
-        <span class="tag-deadly">☠️ MORTAL</span>
-        <div class="detail"><strong>Confusión:</strong> Se confunde con champiñones silvestres jóvenes o Russula virescens. Provoca fallo hepático.</div>
-      </div>
-      <div class="result-card">
-        <h3>Boletus comestible</h3>
-        <em>Boletus edulis</em>
-        <span style="font-size:0.75rem; font-weight:700; color:#1C3829;">✓ Comestible apreciado</span>
-        <div class="detail"><strong>Confusión:</strong> Tylopilus felleus (muy amargo) o Rubroboletus satanas (tóxico, pie rojizo).</div>
-      </div>
-    </section>
-
-    <!-- MAPA -->
-    <section id="screen-map" class="screen">
-      <h3 style="margin-bottom: 8px;">Zonas de Observación</h3>
-      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">Por bioseguridad y protección contra expolios, las ubicaciones muestran una zona aproximada de 1 km.</p>
-      <div id="map-view"></div>
-    </section>
-
-    <!-- HISTORIAL -->
-    <section id="screen-history" class="screen">
-      <h3 style="margin-bottom: 12px;">Historial de Identificaciones</h3>
-      <div id="history-list" style="font-size: 0.85rem; color: var(--text-muted);">No tienes consultas guardadas todavía.</div>
-    </section>
-  </main>
-
-  <nav>
-    <button class="nav-btn active" onclick="navigate('home')">🏠<span>Inicio</span></button>
-    <button class="nav-btn" onclick="navigate('catalog')">📖<span>Catálogo</span></button>
-    <button class="nav-btn" onclick="navigate('map')">📍<span>Mapa</span></button>
-    <button class="nav-btn" onclick="navigate('history')">🗂️<span>Historial</span></button>
-  </nav>
-
-  <input type="file" id="cam-input" accept="image/*" capture="environment" onchange="handleFile(event)">
-  <input type="file" id="gal-input" accept="image/*" onchange="handleFile(event)">
+  <!-- INPUTS NATIVOS OCULTOS -->
+  <input type="file" id="input-camera" accept="image/*" capture="environment" style="display:none;" onchange="handleFileSelected(this)">
+  <input type="file" id="input-gallery" accept="image/*" style="display:none;" onchange="handleFileSelected(this)">
 </div>
 
 <script>
-let map = null;
+function resetApp() {
+  document.getElementById('home-panel').style.display = 'block';
+  document.getElementById('preview-box').style.display = 'none';
+  document.getElementById('status-loading').style.display = 'none';
+  document.getElementById('results-container').innerHTML = '';
+  document.getElementById('btn-reset').style.display = 'none';
+  document.getElementById('input-camera').value = '';
+  document.getElementById('input-gallery').value = '';
+}
 
-function navigate(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const el = document.getElementById('screen-' + id);
-  if (el) el.classList.add('active');
+async function handleFileSelected(inputElement) {
+  const file = inputElement.files[0];
+  if (!file) return;
 
-  if (id === 'map') {
-    setTimeout(() => {
-      if (!map) {
-        map = L.map('map-view').setView([40.4168, -3.7038], 5);
-        L.tileLayer('[https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map]https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        L.circle([40.4168, -3.7038], { radius: 1200, color: '#1C3829', fillOpacity: 0.3 }).addTo(map).bindPopup("Área de observación protegida");
-      } else {
-        map.invalidateSize();
-      }
-    }, 200);
+  // 1. Ocultar inicio y mostrar imagen elegida
+  document.getElementById('home-panel').style.display = 'none';
+  document.getElementById('preview-box').style.display = 'block';
+  document.getElementById('status-loading').style.display = 'block';
+  document.getElementById('results-container').innerHTML = '';
+  document.getElementById('btn-reset').style.display = 'none';
+
+  const previewImg = document.getElementById('preview-img');
+  previewImg.src = URL.createObjectURL(file);
+
+  try {
+    // 2. Convertir imagen a base64
+    const base64Image = await fileToBase64(file);
+
+    // 3. Enviar al backend en Render
+    const response = await fetch('/api/identify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64Image })
+    });
+
+    document.getElementById('status-loading').style.display = 'none';
+    document.getElementById('btn-reset').style.display = 'block';
+
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => ({}));
+      showError(errorJson.details || errorJson.error || `Error HTTP ${response.status}`);
+      return;
+    }
+
+    const data = await response.json();
+    renderCards(data);
+
+  } catch (err) {
+    document.getElementById('status-loading').style.display = 'none';
+    document.getElementById('btn-reset').style.display = 'block';
+    showError("Fallo de conexión: " + err.message);
   }
 }
 
-// Redimensionar imagen para que suba rápido desde el móvil
-function compressImage(file) {
-  return new Promise((resolve) => {
+// Lectura de archivo rápida y compatible con iPhone
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = reject;
     reader.onload = (e) => {
       const img = new Image();
+      img.onerror = reject;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const max = 1000;
+        const max = 800;
         let w = img.width, h = img.height;
-        if (w > max) { h = (h * max) / w; w = max; }
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round((h * max) / w); w = max; }
+          else { w = Math.round((w * max) / h); h = max; }
+        }
         canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
       img.src = e.target.result;
     };
@@ -189,66 +160,41 @@ function compressImage(file) {
   });
 }
 
-async function handleFile(ev) {
-  const file = ev.target.files[0];
-  if (!file) return;
+function showError(msg) {
+  document.getElementById('results-container').innerHTML = `
+    <div class="alert-danger" style="margin-top:10px;">
+      <strong>⚠️ Ocurrió un problema:</strong><br>${msg}
+    </div>`;
+}
 
-  navigate('identify');
-  const preview = document.getElementById('analyzed-preview');
-  const loading = document.getElementById('loading-box');
-  const results = document.getElementById('results-area');
-  const alertBox = document.getElementById('insufficient-alert');
+function renderCards(data) {
+  const container = document.getElementById('results-container');
 
-  results.innerHTML = '';
-  alertBox.style.display = 'none';
-  loading.style.display = 'block';
+  if (!data.isClearImage) {
+    container.innerHTML += `
+      <div style="background:#FFF8E6; border:1px solid #E5C266; color:#7A5500; padding:12px; border-radius:12px; font-size:0.8rem; margin-bottom:12px;">
+        ⚠️ <strong>Foto poco concluyente:</strong> Procura fotografiar la seta de cerca mostrando sombrero y pie completo.
+      </div>`;
+  }
 
-  const base64 = await compressImage(file);
-  preview.src = base64;
+  if (data.candidates && data.candidates.length > 0) {
+    data.candidates.forEach(c => {
+      container.innerHTML += `
+        <div class="card">
+          <h3>${c.commonName || 'Especie sin nombre común'}</h3>
+          <em>${c.scientificName} (${Math.round((c.probability || 0.8) * 100)}% coincidencia)</em>
 
-  try {
-    const res = await fetch('/api/identify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64 })
+          <div class="tag-tox ${c.isDeadly ? 'tag-deadly' : 'tag-warn'}">
+            ${c.isDeadly ? '☠️ ESPECIE MORTAL' : '⚠️ Toxicidad: ' + c.toxicityLevel}
+          </div>
+
+          <div class="detail"><strong>Rasgos visuales:</strong> ${c.visualEvidences || 'Sin descripción'}</div>
+          <div class="detail" style="color:#8A1C14;"><strong>Peligro de confusión:</strong> ${c.dangerousLookalikes || 'No documentado'}</div>
+          <div class="detail"><strong>Hábitat habitual:</strong> ${c.habitat || 'Bosques y praderas'}</div>
+        </div>`;
     });
-
-    loading.style.display = 'none';
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      results.innerHTML = `<div class="danger-box">${err.message || 'Error en el servidor de IA.'}</div>`;
-      return;
-    }
-
-    const data = await res.json();
-
-    if (!data.isClearImage) {
-      alertBox.style.display = 'block';
-      document.getElementById('missing-text').innerText = (data.missingFeatures || []).join(', ') || 'La toma no permite distinguir partes diagnósticas.';
-    }
-
-    if (data.candidates && data.candidates.length > 0) {
-      data.candidates.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'result-card';
-        card.innerHTML = `
-          <h3>${c.commonName || 'Sin nombre común'}</h3>
-          <em>${c.scientificName} (${Math.round((c.probability || 0) * 100)}% coincidencia)</em>
-          ${c.isDeadly ? '<span class="tag-deadly">☠️ ESPECIE MORTAL</span>' : `<span style="font-size:0.75rem; font-weight:700;">⚠️ Toxicidad: ${c.toxicityLevel}</span>`}
-          <div class="detail"><strong>Morfología visual:</strong> ${c.visualEvidences || 'No descrita'}</div>
-          <div class="detail" style="color:#8A201A;"><strong>Peligro de confusión:</strong> ${c.dangerousLookalikes || 'Desconocido'}</div>
-          <div class="detail"><strong>Hábitat:</strong> ${c.habitat || 'No especificado'}</div>
-        `;
-        results.appendChild(card);
-      });
-    } else {
-      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No se detectó ningún espécimen micológico claro en la fotografía.</p>';
-    }
-
-  } catch (err) {
-    loading.style.display = 'none';
-    results.innerHTML = `<div class="danger-box">No se pudo contactar con el backend: ${err.message}</div>`;
+  } else {
+    container.innerHTML = '<p style="text-align:center; color:#627367; padding:10px;">No se reconoció ninguna seta en la fotografía.</p>';
   }
 }
 </script>
